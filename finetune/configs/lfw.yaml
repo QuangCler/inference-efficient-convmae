@@ -1,0 +1,27 @@
+# Resolved dataset overrides for 'lfw' (documentation only).
+# SOURCE OF TRUTH: finetune/common/config.py (BASE + DATASETS['lfw']).
+# Shared byte-identically by BOTH arms; per-model diff is only model/finetune ckpt.
+dataset: lfw
+task: 'verification'
+nb_classes: 5749
+input_size: 224
+epochs: 50
+warmup_epochs: 5
+eff_batch_size: 1024
+batch_size: 128
+accum_iter: 1
+blr: 0.0005
+min_lr: 1e-06
+layer_decay: 0.65
+weight_decay: 0.05
+drop_path: 0.1
+smoothing: 0.1
+mixup: 0.0
+cutmix: 0.0
+aa: 'rand-m9-mstd0.5-inc1'
+reprob: 0.25
+global_pool: True
+amp_dtype: 'bf16'
+# per-model (from MODELS[arm]):
+#   baseline: model=convvit_base_patch16 finetune=models/convmae_base_pretrain_epoch300.pt
+#   ghost: model=convvit_ghost_base_patch16 finetune=models/allghost_epoch_300.pt

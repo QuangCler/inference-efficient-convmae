@@ -1,0 +1,30 @@
+# byte-compiled / caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# environments / secrets
+.env
+venv/
+.venv/
+*.key
+kaggle.json
+
+# data, checkpoints, engines, outputs (never committed)
+data/
+datasets/
+checkpoints/
+engines/
+outputs/
+wandb/
+*.pth
+*.pt
+*.onnx
+*.engine
+*.zip
+*.tar.gz
+
+# os
+.DS_Store
+Thumbs.db

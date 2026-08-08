@@ -1,0 +1,4 @@
+{
+  "baseline": {"vram_fp16_MB": 771, "vram_fp32_MB": 1518, "fp16_img_s": 738, "note": "measured A5000 (report Table VI-1/VI-4a)"},
+  "ghost":    {"vram_fp16_MB": 609, "vram_fp32_MB": 1196, "fp16_img_s": 612, "note": "measured A5000 (report Table VI-1/VI-4a)"}
+}

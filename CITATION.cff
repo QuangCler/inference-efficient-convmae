@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+title: Inference-Efficient ConvMAE for Universal Visual Recognition Tasks
+message: "If you use this code, please cite the capstone report."
+type: software
+authors:
+  - family-names: Đoàn
+    given-names: Đăng Khoa
+    affiliation: FPT University
+  - family-names: Trần
+    given-names: Ngọc Quang
+    affiliation: FPT University
+  - family-names: Võ
+    given-names: Hoàng Lâm
+    affiliation: FPT University
+contact:
+  - name: "Supervisor: Nguyễn Quốc Trung, FPT University"
+year: 2026
+license: MIT
+keywords:
+  - masked autoencoders
+  - ConvMAE
+  - GhostNet
+  - state-space models
+  - efficient inference
+  - TensorRT
