@@ -77,14 +77,13 @@ finetune/common/                                            single-source fair-c
   config.py                                                 the ONE source of truth for the recipe
 finetune/configs/                                           per-dataset task specs (casia/celeba/lfw/scface)
 scripts/                                                    bias-controlled benchmarks + dataset prep
-demo/                                                       laptop demo app (PyTorch / TensorRT, VRAM meter)
 figures/                                                    paper figures
 ```
 
 ## Reproduce
 
 ```bash
-pip install torch torchvision timm==0.9.16    # + a CUDA build for GPU runs (see demo/README.md)
+pip install torch torchvision timm==0.9.16    # + a CUDA build for GPU runs (see the demo repo below)
 
 # CPU smoke of every arm × task (synthetic data)
 python scripts/make_synthetic_data.py
@@ -102,9 +101,11 @@ any architectural drift. ImageNet-1K and the face datasets are **not** redistrib
 
 ## Demo
 
-A self-contained laptop demo (`demo/`) compares the two fine-tuned backbones side by side on four
+A self-contained laptop demo compares the two fine-tuned backbones side by side on four
 face tasks, runs through **PyTorch or a TensorRT engine** (selectable in the UI), and reports a
-**live peak-VRAM measurement** next to the paper's A5000 reference. See [`demo/README.md`](demo/README.md).
+**live peak-VRAM measurement** next to the paper's A5000 reference. The demo lives in its own
+repository: **[QuangCler/ghostconvmae-face-demo](https://github.com/QuangCler/ghostconvmae-face-demo)**
+(private; access on request).
 
 ## Citation
 
