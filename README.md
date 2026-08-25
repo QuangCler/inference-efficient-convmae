@@ -70,6 +70,7 @@ Top-1 at zero memory cost; **S2** adds +2.82 Top-1 at +16.8% memory.
 
 ```
 model_convmae_{baseline,allghost,bimamba,forwardmamba}.py   architecture factories (four arms)
+model_convmae_cls_{baseline,ghost,bimamba,forwardmamba}.py  linear-probe / CLS classifier factories (encoder + head)
 blocks_ghost.py  blocks_mamba_{forward,bidir}.py            Stage-1/2 Ghost + Stage-3 Mamba blocks
 conv_ffn.py  local_scan.py                                  S2 ConvFFN, S1 windowed local scan
 models_convvit.py  vision_transformer.py                    shared ConvViT trunk
@@ -98,6 +99,24 @@ python scripts/gpu_bench_v2.py
 that exactly the freshly-initialized head + normalization parameters are missing, failing fast on
 any architectural drift. ImageNet-1K and the face datasets are **not** redistributed — see the
 `scripts/prepare_*.py` helpers.
+
+## Deploy the linear-probe classifiers
+
+`scripts/demo_deploy_infer.py` runs any of the four arms' ImageNet-1K linear-probe classifiers
+(frozen 300-ep backbone + `BatchNorm1d → Linear` head) through the report's inference pipelines and
+classifies real images:
+
+```bash
+# baseline / ghost -> native PyTorch AND full TensorRT (ONNX export -> engine)
+python scripts/demo_deploy_infer.py --arm ghost --checkpoint <ghost_linprobe.pth> \
+    --images <imagenet>/val/n01440764 --pipeline auto --precision fp16
+# bimamba / forwardmamba -> native PyTorch only (selective scan has no ONNX/TensorRT path)
+python scripts/demo_deploy_infer.py --arm bimamba --checkpoint <bimamba_linprobe.pth> \
+    --images <imagenet>/val/n01440764 --pipeline pytorch
+```
+
+The `model_convmae_cls_*` factories build the classifiers; the Mamba arms additionally require
+`mamba_ssm` (CUDA). Set `IMAGENET_CLASS_INDEX=/path/to/imagenet_class_index.json` for readable labels.
 
 ## Demo
 

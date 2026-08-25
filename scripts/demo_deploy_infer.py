@@ -12,7 +12,13 @@ Usage (on gpu128, inside /root/capstone/linprobe_cls, venv /root/mamba_venv2):
       --images /opt/imagenet_stream/ILSVRC/Data/CLS-LOC/val/n01440764 --limit 4 \
       --pipeline auto --precision fp16
 """
-import argparse, json, os, statistics, time
+import argparse, json, os, statistics, sys, time
+
+# The classifier factories live at the repo root; make them importable when this
+# script is run as `python scripts/demo_deploy_infer.py` from the repo root.
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if REPO not in sys.path:
+    sys.path.insert(0, REPO)
 
 import torch
 from PIL import Image
@@ -22,7 +28,10 @@ from model_convmae_cls_baseline import convmae_baseline_cls
 from model_convmae_cls_ghost import convmae_ghost_cls
 
 MAMBA_ARMS = ("bimamba", "forwardmamba")
-CLASS_INDEX = "/output/imagenet/imagenet_class_index.json"
+# ImageNet class-index JSON (maps class idx -> [wnid, name]) for readable top-k labels.
+# Optional: point IMAGENET_CLASS_INDEX at your own file; if absent, raw indices are shown.
+CLASS_INDEX = os.environ.get(
+    "IMAGENET_CLASS_INDEX", os.path.join(REPO, "scripts", "imagenet_class_index.json"))
 
 PREPROC = transforms.Compose([
     transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(),
