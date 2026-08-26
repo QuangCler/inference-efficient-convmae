@@ -83,22 +83,34 @@ figures/                                                    paper figures
 
 ## Reproduce
 
-```bash
-pip install torch torchvision timm==0.9.16    # + a CUDA build for GPU runs (see the demo repo below)
+Three stages; the [Drive release](#pretrained-weights--checkpoints) holds every checkpoint, so a
+stage can start from the previous one instead of re-running it.
 
-# CPU smoke of every arm × task (synthetic data)
-python scripts/make_synthetic_data.py
-# fair-comparison fine-tune (identical recipe across arms; each arm from its own 300-ep checkpoint)
-python finetune/common/train.py --dataset casia --model ghost --data_path data/casia
-# bias-controlled inference benchmark (Table VI-4a): cuDNN autotune, warm-up 30, median of 3×100
-python scripts/gpu_bench_v2.py
+```bash
+pip install torch torchvision timm==0.9.16     # + a CUDA build for GPU runs
+python scripts/make_synthetic_data.py          # CPU smoke of every arm × task (synthetic data)
 ```
 
-`finetune/common/config.py` is the single source of truth for the recipe (effective batch 1,024,
-`blr 5e-4`, layer decay 0.65, weight decay 0.05, drop-path 0.1, BF16); checkpoint loading asserts
-that exactly the freshly-initialized head + normalization parameters are missing, failing fast on
-any architectural drift. ImageNet-1K and the face datasets are **not** redistributed — see the
-`scripts/prepare_*.py` helpers.
+**1 · Pre-train** — 300 epochs on ImageNet-1K, one run per arm, all sharing the MAE recipe: the trunk
+above + decoder 512-d/8-block/16-head, **mask ratio 0.75**, block-wise masking, BF16. The models are
+the `model_convmae_{baseline,allghost,bimamba,forwardmamba}.py` factories; the outputs are the
+`*_epoch300.pt` files in the Drive release. (The Mamba arms need `mamba_ssm`, CUDA.)
+
+**2 · Linear probe** — 90 epochs on ImageNet-1K, backbone **frozen**, training only a
+`BatchNorm→Linear` head (LARS, `blr 0.1`, `weight_decay 0.0`, 10-epoch warm-up). This is the
+representation-quality number (Fig VI-2).
+
+**3 · Fine-tune** — one command per (arm, dataset, seed), each starting from that arm's 300-ep checkpoint:
+```bash
+python finetune/common/train.py --dataset casia --model ghost --data_path data/casia
+```
+`finetune/common/config.py` is the single source of truth (effective batch 1,024, `blr 5e-4`, layer
+decay 0.65, weight decay 0.05, drop-path 0.1, BF16); the loader fails fast if any key other than the
+fresh head + norm is missing.
+
+**Benchmark** the trained models (Table VI-4a): `python scripts/gpu_bench_v2.py`.
+
+ImageNet-1K and the face datasets are **not** redistributed — see `scripts/prepare_*.py`.
 
 ## Pretrained weights & checkpoints
 
@@ -116,24 +128,6 @@ All checkpoints and per-run logs are released in one Google Drive folder:
 
 The `finetune=` paths in `finetune/common/config.py` (e.g. `models/allghost_epoch_300.pt`) are the
 `300-Epoch Pretraining/` files above; place them under `models/` to reproduce the fine-tunes.
-
-## Deploy the linear-probe classifiers
-
-`scripts/demo_deploy_infer.py` runs any of the four arms' ImageNet-1K linear-probe classifiers
-(frozen 300-ep backbone + `BatchNorm1d → Linear` head) through the report's inference pipelines and
-classifies real images:
-
-```bash
-# baseline / ghost -> native PyTorch AND full TensorRT (ONNX export -> engine)
-python scripts/demo_deploy_infer.py --arm ghost --checkpoint <ghost_linprobe.pth> \
-    --images <imagenet>/val/n01440764 --pipeline auto --precision fp16
-# bimamba / forwardmamba -> native PyTorch only (selective scan has no ONNX/TensorRT path)
-python scripts/demo_deploy_infer.py --arm bimamba --checkpoint <bimamba_linprobe.pth> \
-    --images <imagenet>/val/n01440764 --pipeline pytorch
-```
-
-The `model_convmae_cls_*` factories build the classifiers; the Mamba arms additionally require
-`mamba_ssm` (CUDA). Set `IMAGENET_CLASS_INDEX=/path/to/imagenet_class_index.json` for readable labels.
 
 ## Demo
 
