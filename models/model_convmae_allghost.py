@@ -1,25 +1,22 @@
-# Scenario 2: GhostBlock stage 1,2 + BiMambaBlock stage 3 (forward & backward)
+# Scenario 1: GhostBlock ở stage 1, 2 và Transformer ở stage 3
 
 from functools import partial
 from typing import Callable, Sequence
 import torch
 import torch.nn as nn
 
-from vision_transformer import PatchEmbed, Block
-from blocks_ghost import GhostV2BlockMasked
-from blocks_mamba_bidir import BiMambaBlock
+from .vision_transformer import PatchEmbed, Block
+from .blocks_ghost import GhostV2BlockMasked
 from util.pos_embed import get_2d_sincos_pos_embed
 
 
-class MaskedAutoencoderConvViT_BiMamba(nn.Module):
-    """Scenario 2: GhostBlock stage1,2 + BiMambaBlock stage3 (forward & backward)"""
+class MaskedAutoencoderConvViT_AllGhost(nn.Module):
+    """Scenario 1: GhostBlock at stages 1, 2 + Transformer at stage 3"""
     
     def __init__(self, img_size: Sequence[int] = (224, 56, 28), patch_size: Sequence[int] = (4, 2, 2), in_chans: int = 3,
                  embed_dim: Sequence[int] = (256, 384, 768), depth: Sequence[int] = (2, 2, 11), num_heads: int = 12,
                  decoder_embed_dim: int = 512, decoder_depth: int = 8, decoder_num_heads: int = 16,
-                 mlp_ratio: Sequence[float] = (4.0, 4.0, 4.0), norm_layer: Callable[..., nn.Module] = nn.LayerNorm, norm_pix_loss: bool = False,
-                 use_local_scan: bool = False, local_scan_window_size: int = 4, scan_direction: str = "horizontal",
-                 use_convffn: bool = False, convffn_expand_ratio: float = 4.0, convffn_dw_kernel: int = 3):
+                 mlp_ratio: Sequence[float] = (4.0, 4.0, 4.0), norm_layer: Callable[..., nn.Module] = nn.LayerNorm, norm_pix_loss: bool = False):
         super().__init__()
         self.patch_embed1 = PatchEmbed(
                 img_size=img_size[0], patch_size=patch_size[0], in_chans=in_chans, embed_dim=embed_dim[0])
@@ -40,26 +37,11 @@ class MaskedAutoencoderConvViT_BiMamba(nn.Module):
         self.blocks1 = nn.ModuleList([GhostV2BlockMasked(dim=embed_dim[0]) for i in range(depth[0])])
         self.blocks2 = nn.ModuleList([GhostV2BlockMasked(dim=embed_dim[1]) for i in range(depth[1])])
         
-        # Stage 3: Hybrid Transformer + BiMamba
-        self.blocks3 = nn.ModuleList()
-        for i in range(depth[2]):
-            if i in [3, 7, 9, 10]:
-                self.blocks3.append(
-                      Block(dim=embed_dim[2], num_heads=num_heads, mlp_ratio=mlp_ratio[2], 
-                          qkv_bias=True, qk_scale=None, norm_layer=norm_layer)  # type: ignore[arg-type]
-                )
-            else: 
-                self.blocks3.append(
-                    BiMambaBlock(
-                        dim=embed_dim[2],
-                        use_local_scan=use_local_scan,
-                        local_scan_window_size=local_scan_window_size,
-                        scan_direction=scan_direction,
-                        use_convffn=use_convffn,
-                        convffn_expand_ratio=convffn_expand_ratio,
-                        convffn_dw_kernel=convffn_dw_kernel,
-                    )
-                )
+        # Stage 3: Full Transformer (same as S0)
+        self.blocks3 = nn.ModuleList([
+            Block(dim=embed_dim[2], num_heads=num_heads, mlp_ratio=mlp_ratio[2],
+                qkv_bias=True, qk_scale=None, norm_layer=norm_layer)  # type: ignore[arg-type]
+            for i in range(depth[2])])
         
         self.norm = norm_layer(embed_dim[-1])
 
@@ -146,18 +128,15 @@ class MaskedAutoencoderConvViT_BiMamba(nn.Module):
         stage2_embed = self.stage2_output_decode(x).flatten(2).permute(0, 2, 1)
         
         x = self.patch_embed3(x)
-        H3, W3 = x.shape[-2], x.shape[-1]
         x = x.flatten(2).permute(0, 2, 1)
         x = self.patch_embed4(x)
         x = x + self.pos_embed
         x = torch.gather(x, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, x.shape[-1]))
         stage1_embed = torch.gather(stage1_embed, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, stage1_embed.shape[-1]))
         stage2_embed = torch.gather(stage2_embed, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, stage2_embed.shape[-1]))
+        # Stage 3 with Transformer blocks
         for blk in self.blocks3:
-            if getattr(blk, "supports_s1_s2", False):
-                x = blk(x, H3, W3, ids_keep=ids_keep)
-            else:
-                x = blk(x)
+            x = blk(x)
         
         x = x + stage1_embed + stage2_embed
         x = self.norm(x)
@@ -197,9 +176,13 @@ class MaskedAutoencoderConvViT_BiMamba(nn.Module):
         return loss, pred, mask
 
 
-def convmae_bimamba(**kwargs):
-    model = MaskedAutoencoderConvViT_BiMamba(
+def convmae_allghost(**kwargs):
+    model = MaskedAutoencoderConvViT_AllGhost(
         img_size=[224, 56, 28], patch_size=[4, 2, 2], embed_dim=[256, 384, 768], depth=[2, 2, 11], num_heads=12,
         decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=16,
         mlp_ratio=[4, 4, 4], norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
+
+
+def convmae_ghost12_transformer3(**kwargs):
+    return convmae_allghost(**kwargs)

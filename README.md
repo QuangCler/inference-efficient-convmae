@@ -69,11 +69,12 @@ Top-1 at zero memory cost; **S2** adds +2.82 Top-1 at +16.8% memory.
 ## Repository layout
 
 ```
-model_convmae_{baseline,allghost,bimamba,forwardmamba}.py   architecture factories (four arms)
-model_convmae_cls_{baseline,ghost,bimamba,forwardmamba}.py  linear-probe / CLS classifier factories (encoder + head)
-blocks_ghost.py  blocks_mamba_{forward,bidir}.py            Stage-1/2 Ghost + Stage-3 Mamba blocks
-conv_ffn.py  local_scan.py                                  S2 ConvFFN, S1 windowed local scan
-models_convvit.py  vision_transformer.py                    shared ConvViT trunk
+models/                                                     architecture package (import as models.*)
+  model_convmae_{baseline,allghost,bimamba,forwardmamba}.py   per-arm MAE factories (pre-training)
+  convmae_cls.py                                             ONE classifier wrapper (linear head) for all four arms
+  blocks_ghost.py  blocks_mamba_{forward,bidir}.py           Stage-1/2 Ghost + Stage-3 Mamba blocks
+  conv_ffn.py  local_scan.py                                 S2 ConvFFN, S1 windowed local scan
+  models_convvit.py  vision_transformer.py                   shared ConvViT trunk
 util/                                                       misc, LR schedule, LARS, positional embeds
 pretrain/    pretrain.py  engine_pretrain.py                Stage 1 — MAE pre-training (300 ep, four arms)
 linprobe/    linprobe.py  engine_finetune.py                Stage 2 — ImageNet linear probing (90 ep)

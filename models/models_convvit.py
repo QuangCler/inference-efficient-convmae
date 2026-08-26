@@ -10,7 +10,7 @@ from functools import partial
 import torch
 import torch.nn as nn
 import pdb
-import vision_transformer
+from . import vision_transformer
 
 
 class ConvViT(vision_transformer.ConvViT):

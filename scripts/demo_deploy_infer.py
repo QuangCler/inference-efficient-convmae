@@ -24,8 +24,7 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
-from model_convmae_cls_baseline import convmae_baseline_cls
-from model_convmae_cls_ghost import convmae_ghost_cls
+from models.convmae_cls import convmae_cls
 
 MAMBA_ARMS = ("bimamba", "forwardmamba")
 # ImageNet class-index JSON (maps class idx -> [wnid, name]) for readable top-k labels.
@@ -39,19 +38,8 @@ PREPROC = transforms.Compose([
 
 
 def build_model(arm):
-    if arm == "baseline":
-        m = convmae_baseline_cls(num_classes=1000)
-    elif arm == "ghost":
-        m = convmae_ghost_cls(num_classes=1000)
-    elif arm in MAMBA_ARMS:  # CUDA-only imports, keep lazy
-        if arm == "bimamba":
-            from model_convmae_cls_bimamba import convmae_bimamba_cls as fn
-        else:
-            from model_convmae_cls_forwardmamba import convmae_forwardmamba_cls as fn
-        m = fn(num_classes=1000)
-    else:
-        raise ValueError(arm)
-    return m
+    # convmae_cls imports the Mamba arms lazily, so baseline/ghost never pull mamba_ssm.
+    return convmae_cls(arm, num_classes=1000)
 
 
 def load_checkpoint(model, path):

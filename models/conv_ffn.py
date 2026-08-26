@@ -3,7 +3,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from local_scan import gather_visible_tokens, scatter_visible_tokens
+from .local_scan import gather_visible_tokens, scatter_visible_tokens
 
 
 class ConvFFN(nn.Module):

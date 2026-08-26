@@ -25,8 +25,8 @@ import torch.nn as nn
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-import models_convvit  # noqa: E402  (baseline ConvViT with global-pool + fc_norm)
-from blocks_ghost import GhostV2BlockMasked  # noqa: E402  (same class used by the pretrain ghost model)
+from models import models_convvit  # noqa: E402  (baseline ConvViT with global-pool + fc_norm)
+from models.blocks_ghost import GhostV2BlockMasked  # noqa: E402  (same class used by the pretrain ghost model)
 
 
 # --------------------------------------------------------------------------------------
@@ -161,14 +161,14 @@ def convmae_bimamba_base_patch16(**kwargs):
     drop_path_rate/global_pool are accepted for a uniform interface but not consumed by this arm
     (its head is fixed — see ConvMAEMambaCls). Only the S1-S2 flags + num_classes matter.
     """
-    from model_convmae_bimamba import convmae_bimamba  # noqa: E402  (lazy, CUDA-only deps)
+    from models.model_convmae_bimamba import convmae_bimamba  # noqa: E402  (lazy, CUDA-only deps)
     mae = convmae_bimamba(**_mamba_cfg(kwargs))
     return ConvMAEMambaCls(mae, num_classes=kwargs.get("num_classes", 1000))
 
 
 def convmae_forwardmamba_base_patch16(**kwargs):
     """ForwardMamba ConvMAE finetune model (Ghost stages 1/2 + forward Mamba stage 3, S1-S2)."""
-    from model_convmae_forwardmamba import convmae_forwardmamba  # noqa: E402  (lazy, CUDA-only)
+    from models.model_convmae_forwardmamba import convmae_forwardmamba  # noqa: E402  (lazy, CUDA-only)
     mae = convmae_forwardmamba(**_mamba_cfg(kwargs))
     return ConvMAEMambaCls(mae, num_classes=kwargs.get("num_classes", 1000))
 

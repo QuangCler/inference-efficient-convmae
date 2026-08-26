@@ -41,21 +41,21 @@ from util.misc import NativeScalerWithGradNormCount as NativeScaler
 
 from engine_pretrain import train_one_epoch
 
-import model_convmae_baseline
-import model_convmae_allghost
+from models.model_convmae_baseline import convmae_baseline
+from models.model_convmae_allghost import convmae_allghost
 
 
 def build_model(arm, norm_pix_loss, s1_s2_kwargs):
     """One MAE model per arm, from the same factories the fine-tune / probe use."""
     if arm == "baseline":
-        return model_convmae_baseline.convmae_baseline(norm_pix_loss=norm_pix_loss)
+        return convmae_baseline(norm_pix_loss=norm_pix_loss)
     if arm == "ghost":
-        return model_convmae_allghost.convmae_allghost(norm_pix_loss=norm_pix_loss)
+        return convmae_allghost(norm_pix_loss=norm_pix_loss)
     if arm == "bimamba":
-        from model_convmae_bimamba import convmae_bimamba  # CUDA-only (mamba_ssm), import lazily
+        from models.model_convmae_bimamba import convmae_bimamba  # CUDA-only (mamba_ssm), import lazily
         return convmae_bimamba(norm_pix_loss=norm_pix_loss, **s1_s2_kwargs)
     if arm == "forwardmamba":
-        from model_convmae_forwardmamba import convmae_forwardmamba
+        from models.model_convmae_forwardmamba import convmae_forwardmamba
         return convmae_forwardmamba(norm_pix_loss=norm_pix_loss, **s1_s2_kwargs)
     raise ValueError(f"Unknown model: {arm}")
 

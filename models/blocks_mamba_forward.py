@@ -3,8 +3,8 @@ import warnings
 import torch
 import torch.nn as nn
 
-from conv_ffn import ConvFFN
-from local_scan import LocalScanMamba
+from .conv_ffn import ConvFFN
+from .local_scan import LocalScanMamba
 
 try:
     from mamba_ssm import Mamba2 as Mamba
@@ -17,25 +17,15 @@ except ImportError:
     )
 
 
-class _ReverseSequenceMamba(nn.Module):
-    def __init__(self, mamba_layer: nn.Module):
-        super().__init__()
-        self.mamba = mamba_layer
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = torch.flip(x, dims=[1])
-        x = self.mamba(x)
-        return torch.flip(x, dims=[1])
-
-
-class BiMambaBlock(nn.Module):
-    """Bidirectional Mamba block for [B, N, C] tokens."""
-
+class MambaBlock(nn.Module):
     supports_s1_s2 = True
 
     def __init__(
         self,
         dim: int,
+        d_state: int = 64,
+        d_conv: int = 4,
+        expand: int = 2,
         use_local_scan: bool = False,
         local_scan_window_size: int = 4,
         scan_direction: str = "horizontal",
@@ -51,29 +41,11 @@ class BiMambaBlock(nn.Module):
         self.use_local_scan = use_local_scan
         self.use_convffn = use_convffn
         self.norm = nn.LayerNorm(dim)
-
-        self.mamba_fwd = Mamba(d_model=dim, d_state=64, d_conv=4, expand=2)
-        self.mamba_bwd = Mamba(d_model=dim, d_state=64, d_conv=4, expand=2)
-        # S1 Local Scan: when enabled, Mamba processes tokens within each
-        # non-overlapping spatial window independently.  Bidirectionality is
-        # achieved *within each window* (intra-window forward + intra-window
-        # backward) rather than reversing the full global sequence.  This
-        # preserves the locality principle of windowed attention while still
-        # capturing both scan directions inside each local region.
-        self.local_scan_fwd = (
+        self.mamba = Mamba(d_model=dim, d_state=d_state, d_conv=d_conv, expand=expand)
+        self.local_scan = (
             LocalScanMamba(
                 dim=dim,
-                mamba_layer=self.mamba_fwd,
-                window_size=local_scan_window_size,
-                scan_direction=scan_direction,
-            )
-            if use_local_scan
-            else None
-        )
-        self.local_scan_bwd = (
-            LocalScanMamba(
-                dim=dim,
-                mamba_layer=_ReverseSequenceMamba(self.mamba_bwd),
+                mamba_layer=self.mamba,
                 window_size=local_scan_window_size,
                 scan_direction=scan_direction,
             )
@@ -115,30 +87,23 @@ class BiMambaBlock(nn.Module):
         W: int | None = None,
         ids_keep: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        residual = x
-        x = self.norm(x)
+        if torch.onnx.is_in_onnx_export():
+            # Mamba SSM is not ONNX-exportable; approximate as identity.
+            # ConvFFN IS exportable, so we keep it for a closer approximation.
+            x = x + self.norm(x)
+            if self.use_convffn:
+                H, W = self._resolve_hw(x, H, W, ids_keep)
+                x = x + self.ffn(self.norm2(x), H, W, ids_keep=ids_keep)
+            return x
 
         if self.use_local_scan or self.use_convffn:
             H, W = self._resolve_hw(x, H, W, ids_keep)
 
-        if torch.onnx.is_in_onnx_export():
-            # Mamba SSM is not ONNX-exportable; approximate as identity.
-            # ConvFFN IS exportable, so we keep it for a closer approximation.
-            x = x + residual
-            if self.use_convffn:
-                x = x + self.ffn(self.norm2(x), H, W, ids_keep=ids_keep)
-            return x
-
         if self.use_local_scan:
-            y_fwd = self.local_scan_fwd(x, H, W, ids_keep=ids_keep)
-            y_bwd = self.local_scan_bwd(x, H, W, ids_keep=ids_keep)
+            x = x + self.local_scan(self.norm(x), H, W, ids_keep=ids_keep)
         else:
-            y_fwd = self.mamba_fwd(x)
-            x_rev = torch.flip(x, dims=[1])
-            y_bwd = self.mamba_bwd(x_rev)
-            y_bwd = torch.flip(y_bwd, dims=[1])
+            x = x + self.mamba(self.norm(x))
 
-        x = y_fwd + y_bwd + residual
         if self.use_convffn:
             x = x + self.ffn(self.norm2(x), H, W, ids_keep=ids_keep)
         return x

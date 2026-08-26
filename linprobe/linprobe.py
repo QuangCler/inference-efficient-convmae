@@ -48,22 +48,12 @@ from util.crop import RandomResizedCrop
 
 from engine_finetune import train_one_epoch, evaluate
 
-from model_convmae_cls_baseline import convmae_baseline_cls
-from model_convmae_cls_ghost import convmae_ghost_cls
-from model_convmae_cls_bimamba import convmae_bimamba_cls
-from model_convmae_cls_forwardmamba import convmae_forwardmamba_cls
+from models.convmae_cls import convmae_cls
 
 
 def get_model(model_name: str, num_classes: int = 1000, **s1_s2_kwargs):
-    if model_name == "baseline":
-        return convmae_baseline_cls(num_classes=num_classes)
-    if model_name == "ghost":
-        return convmae_ghost_cls(num_classes=num_classes)
-    if model_name == "bimamba":
-        return convmae_bimamba_cls(num_classes=num_classes, **s1_s2_kwargs)
-    if model_name == "forwardmamba":
-        return convmae_forwardmamba_cls(num_classes=num_classes, **s1_s2_kwargs)
-    raise ValueError(f"Unknown model: {model_name}")
+    # one wrapper for all four arms; S1/S2 kwargs apply to the Mamba arms only.
+    return convmae_cls(model_name, num_classes=num_classes, **s1_s2_kwargs)
 
 
 def _extract_checkpoint_state_dict(checkpoint):
