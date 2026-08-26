@@ -100,6 +100,23 @@ that exactly the freshly-initialized head + normalization parameters are missing
 any architectural drift. ImageNet-1K and the face datasets are **not** redistributed — see the
 `scripts/prepare_*.py` helpers.
 
+## Pretrained weights & checkpoints
+
+All checkpoints and per-run logs are released in one Google Drive folder:
+
+**📦 [Model & results release (Google Drive)](https://drive.google.com/drive/folders/1MIB4bH_BXFhjG0iW1wpoRVofJLUn5qjF?usp=sharing)**
+
+| Folder | Contents |
+|---|---|
+| `300-Epoch Pretraining/` | the four arms' MAE pretrain checkpoints (`*_epoch300.pt`) + training logs — the backbones every downstream run starts from |
+| `50-Epoch Pretraining/` | the same four arms at 50 epochs (short-schedule reference) |
+| `CLS Evaluation (90 Epochs) (300-Epoch Pretraining)/` | the 90-epoch ImageNet-1K **linear-probe** heads on the 300-ep backbones, all four arms |
+| `finetune_result/` | face fine-tune runs — `{baseline,ghost}/{arface,casia,celeba,lfw,multipie,scface}/seed{0,1,2}/` with `best_checkpoint.pth`, `metrics.json`, `log.txt` |
+| `S1 Ablation (Windowed Local Scan)/`, `S2 Ablation (ConvFFN)/` | the ForwardMamba S1 / S2 ablation pretrain checkpoints |
+
+The `finetune=` paths in `finetune/common/config.py` (e.g. `models/allghost_epoch_300.pt`) are the
+`300-Epoch Pretraining/` files above; place them under `models/` to reproduce the fine-tunes.
+
 ## Deploy the linear-probe classifiers
 
 `scripts/demo_deploy_infer.py` runs any of the four arms' ImageNet-1K linear-probe classifiers
