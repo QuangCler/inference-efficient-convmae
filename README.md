@@ -74,8 +74,11 @@ model_convmae_cls_{baseline,ghost,bimamba,forwardmamba}.py  linear-probe / CLS c
 blocks_ghost.py  blocks_mamba_{forward,bidir}.py            Stage-1/2 Ghost + Stage-3 Mamba blocks
 conv_ffn.py  local_scan.py                                  S2 ConvFFN, S1 windowed local scan
 models_convvit.py  vision_transformer.py                    shared ConvViT trunk
-finetune/common/                                            single-source fair-comparison recipe + engine
-  config.py                                                 the ONE source of truth for the recipe
+util/                                                       misc, LR schedule, LARS, positional embeds
+pretrain/    pretrain.py  engine_pretrain.py                Stage 1 — MAE pre-training (300 ep, four arms)
+linprobe/    linprobe.py  engine_finetune.py                Stage 2 — ImageNet linear probing (90 ep)
+finetune/common/                                            Stage 3 — single-source fair-comparison recipe + engine
+  config.py                                                 the ONE source of truth for the fine-tune recipe
 finetune/configs/                                           per-dataset task specs (casia/celeba/lfw/scface)
 scripts/                                                    bias-controlled benchmarks + dataset prep
 figures/                                                    paper figures
@@ -91,14 +94,24 @@ pip install torch torchvision timm==0.9.16     # + a CUDA build for GPU runs
 python scripts/make_synthetic_data.py          # CPU smoke of every arm × task (synthetic data)
 ```
 
-**1 · Pre-train** — 300 epochs on ImageNet-1K, one run per arm, all sharing the MAE recipe: the trunk
-above + decoder 512-d/8-block/16-head, **mask ratio 0.75**, block-wise masking, BF16. The models are
-the `model_convmae_{baseline,allghost,bimamba,forwardmamba}.py` factories; the outputs are the
-`*_epoch300.pt` files in the Drive release. (The Mamba arms need `mamba_ssm`, CUDA.)
+**1 · Pre-train** — MAE pre-training, 300 epochs on ImageNet-1K, one run per arm (mask ratio 0.75,
+normalized-pixel loss, `blr 1.5e-4` → lr 2.4e-3 at effective batch 4,096, 40-epoch warm-up):
+```bash
+python -m torch.distributed.launch --nproc_per_node=8 pretrain/pretrain.py \
+    --model ghost --data_path /path/to/imagenet \
+    --output_dir outputs/ghost_pretrain --batch_size 64 --accum_iter 8 --epochs 300
+```
+`--model {baseline,ghost,bimamba,forwardmamba}`; outputs match the `*_epoch300.pt` files in the Drive
+release. Standard ImageFolder loading (no DALI). The Mamba arms need `mamba_ssm` (CUDA).
 
-**2 · Linear probe** — 90 epochs on ImageNet-1K, backbone **frozen**, training only a
-`BatchNorm→Linear` head (LARS, `blr 0.1`, `weight_decay 0.0`, 10-epoch warm-up). This is the
-representation-quality number (Fig VI-2).
+**2 · Linear probe** — freeze the backbone, train only a `BatchNorm→Linear` head (LARS, `blr 0.1` →
+lr 1.6 at effective batch 4,096, zero weight decay, 90 epochs, 10-epoch warm-up). The
+representation-quality number (Fig VI-2):
+```bash
+python -m torch.distributed.launch --nproc_per_node=8 linprobe/linprobe.py \
+    --model ghost --finetune models/allghost_epoch_300.pt \
+    --data_path /path/to/imagenet --output_dir outputs/ghost_linprobe --batch_size 512 --dist_eval
+```
 
 **3 · Fine-tune** — one command per (arm, dataset, seed), each starting from that arm's 300-ep checkpoint:
 ```bash
