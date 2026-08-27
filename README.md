@@ -149,7 +149,7 @@ A self-contained laptop demo compares the two fine-tuned backbones side by side 
 face tasks, runs through **PyTorch or a TensorRT engine** (selectable in the UI), and reports a
 **live peak-VRAM measurement** next to the paper's A5000 reference. The demo lives in its own
 repository: **[QuangCler/ghostconvmae-face-demo](https://github.com/QuangCler/ghostconvmae-face-demo)**
-(private; access on request).
+.
 
 ## Citation
 
